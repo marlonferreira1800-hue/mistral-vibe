@@ -41,9 +41,22 @@ async fn j_and_k_move_like_the_arrows_and_wrap() {
     press(&mut app, KeyCode::Char('k'));
     assert_eq!(app.approval.list.selected(), 0);
     press(&mut app, KeyCode::Char('k'));
-    assert_eq!(app.approval.list.selected(), 3, "k wraps to Deny");
+    assert_eq!(app.approval.list.selected(), 4, "k wraps to Deny");
     press(&mut app, KeyCode::Down);
     assert_eq!(app.approval.list.selected(), 0, "Down wraps to Allow once");
+}
+
+#[test]
+fn digit_keys_cover_all_five_options() {
+    use vibe_rs::approval::KeyAction;
+    for (ch, idx) in [('1', 0), ('2', 1), ('3', 2), ('4', 3), ('5', 4)] {
+        let ev = key(KeyCode::Char(ch));
+        assert_eq!(
+            approval::key_action(&ev),
+            Some(KeyAction::Choose(idx)),
+            "digit {ch}"
+        );
+    }
 }
 
 #[tokio::test]

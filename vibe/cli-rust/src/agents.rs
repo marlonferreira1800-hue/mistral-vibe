@@ -165,6 +165,26 @@ pub fn cycle(app: &mut App, client: &Arc<Client>) {
     }
 }
 
+/// Switch the session to the auto-approve (yolo) agent, e.g. from the approval
+/// menu's "Auto-approve" option. No-op when no yolo agent is offered
+/// (enterprise `enable_auto_approve = false` hides it).
+pub fn switch_to_yolo(app: &mut App, client: &Arc<Client>) {
+    let Some(yolo) = app
+        .agents
+        .all
+        .iter()
+        .find(|agent| agent.safety == AgentSafety::Yolo && agent.agent_type == AgentType::Agent)
+        .map(|agent| agent.name.clone())
+    else {
+        return;
+    };
+    app.agents.desired = Some(yolo);
+    app.agents.switching_indicator = false;
+    if !app.agents.switch_active && app.session.session_id.is_some() {
+        send_desired(app, client);
+    }
+}
+
 /// Send the agent picked while the session was still starting (nothing to do
 /// when Shift+Tab was never pressed).
 pub fn flush_pending(app: &mut App, client: &Arc<Client>) {

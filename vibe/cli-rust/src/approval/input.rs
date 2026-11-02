@@ -9,7 +9,7 @@ use crate::question_app::input_grace_period;
 use crate::selection::RegionId;
 use crate::server::{ApprovalDecisionType, Client};
 
-const OPTION_COUNT: usize = 4;
+const OPTION_COUNT: usize = 5;
 const MOUSE_SCROLL_STEP: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,11 +89,18 @@ fn choose(app: &mut App, client: &Arc<Client>, option: usize) {
     {
         return;
     }
+    if option == 3 {
+        // Auto-approve (yolo): answer this one, then switch the session agent
+        // so nothing else asks.
+        super::respond(app, client, ApprovalDecisionType::Approve);
+        crate::agents::switch_to_yolo(app, client);
+        return;
+    }
     let decision = match option {
         0 => ApprovalDecisionType::Approve,
         1 => ApprovalDecisionType::ApproveForSession,
         2 => ApprovalDecisionType::ApprovePermanently,
-        3 => ApprovalDecisionType::Deny,
+        4 => ApprovalDecisionType::Deny,
         _ => return,
     };
     super::respond(app, client, decision);

@@ -14,10 +14,11 @@ use crate::hints::{self, action, key};
 use crate::utils::text::wrap_hard;
 
 const MAX_HEIGHT_RATIO: (u16, u16) = (7, 10);
-const OPTIONS: [&str; 4] = [
+const OPTIONS: [&str; 5] = [
     "Allow once",
     "Allow for remainder of this session",
     "Always allow",
+    "Auto-approve (don't ask again)",
     "Deny",
 ];
 

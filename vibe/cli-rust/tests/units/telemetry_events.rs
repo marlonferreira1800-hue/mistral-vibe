@@ -249,9 +249,9 @@ fn app_with_open_approval() -> (
 async fn every_deny_key_records_reject_approval() {
     let deny_keys = [
         (0, KeyCode::Char('n')),
-        (0, KeyCode::Char('4')),
+        (0, KeyCode::Char('5')),
         (0, KeyCode::Esc),
-        (3, KeyCode::Enter),
+        (4, KeyCode::Enter),
     ];
     for (selected, code) in deny_keys {
         let key = key(code);
