@@ -37,6 +37,8 @@ fn semantic_colors_match_theme_bindings() {
         ("catppuccin-mocha", Color::Rgb(0x56, 0x58, 0x6C)),
         ("dracula", Color::Rgb(0x41, 0x44, 0x53)),
         ("flexoki", Color::Rgb(0x38, 0x37, 0x36)),
+        ("flexoki-dark", Color::Rgb(0x38, 0x37, 0x36)),
+        ("flexoki-light", Color::Rgb(0xF7, 0xF5, 0xEC)),
         ("gruvbox", Color::Rgb(0x61, 0x5A, 0x56)),
         ("monokai", Color::Rgb(0x4F, 0x4E, 0x42)),
         ("nord", Color::Rgb(0x54, 0x5D, 0x70)),
