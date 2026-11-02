@@ -2256,9 +2256,13 @@ class UnifiedHarnessSessionBackend:  # noqa: PLR0904 - implements app-server ses
                 after_response=after_response,
                 on_response_abandoned=on_response_abandoned,
             )
+        dumped_state = runtime.projection.model_dump(mode="json", by_alias=True)
+        if "history" in dumped_state and isinstance(dumped_state["history"], dict):
+            dumped_state["history"]["entries"] = []
         response = {
             "summary": outcome.summary,
-            "state": runtime.projection.model_dump(mode="json", by_alias=True),
+            "session_id": self._session_id,
+            "state": dumped_state,
             "last_event_id": self._current_event_id(),
         }
 

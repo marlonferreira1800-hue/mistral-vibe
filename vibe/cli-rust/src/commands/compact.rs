@@ -52,18 +52,49 @@ pub fn start_compact(app: &mut App, client: &Arc<Client>, value: &str) {
             "extraInstructions": extra,
         });
         let event = match client.request(method::SESSION_COMPACT, params).await {
-            Ok(result) => match result.get("state").cloned().and_then(|state| {
-                serde_json::from_value::<crate::server::PublicSessionState>(state).ok()
-            }) {
-                Some(state) => CommandEvent::Compacted {
-                    state: Box::new(state),
-                    status_id: status_id.clone(),
-                },
-                None => CommandEvent::CompactError {
-                    status_id: status_id.clone(),
-                    error: "Compaction returned no state.".to_owned(),
-                },
-            },
+            Ok(result) => {
+                let state_opt = result.get("state").cloned().and_then(|state| {
+                    serde_json::from_value::<crate::server::PublicSessionState>(state).ok()
+                });
+                match state_opt {
+                    Some(state) => CommandEvent::Compacted {
+                        state: Box::new(state),
+                        status_id: status_id.clone(),
+                    },
+                    None => {
+                        let session_id = result
+                            .get("sessionId")
+                            .or_else(|| result.get("session_id"))
+                            .and_then(Value::as_str)
+                            .unwrap_or(&session_id)
+                            .to_owned();
+                        let minimal_state = crate::server::PublicSessionState {
+                            event_id: result
+                                .get("last_event_id")
+                                .or_else(|| result.get("lastEventId"))
+                                .and_then(Value::as_u64)
+                                .unwrap_or(0),
+                            session: crate::server::PublicSession {
+                                id: session_id,
+                                title: None,
+                                cwd: None,
+                                worktree: None,
+                                token_usage: None,
+                            },
+                            history: None,
+                            history_before_cursor: None,
+                            turns: None,
+                            turn_queue: None,
+                            retrying: None,
+                            child_sessions: Vec::new(),
+                        };
+                        CommandEvent::Compacted {
+                            state: Box::new(minimal_state),
+                            status_id: status_id.clone(),
+                        }
+                    }
+                }
+            }
             Err(error) => CommandEvent::CompactError {
                 status_id: status_id.clone(),
                 error: error.to_string(),

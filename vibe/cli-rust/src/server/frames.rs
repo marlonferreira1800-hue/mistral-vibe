@@ -7,7 +7,7 @@ use super::process::{Pending, RequestFailure};
 use super::reader::next_frame;
 
 /// Maximum accepted JSON-RPC frame size (bytes); a larger one is skipped, the transport stays up.
-pub const MAX_FRAME: usize = 16 * 1024 * 1024;
+pub const MAX_FRAME: usize = 64 * 1024 * 1024;
 
 /// Leading bytes kept from an oversized frame, enough to read its id.
 const PREFIX_MAX: usize = 4096;
