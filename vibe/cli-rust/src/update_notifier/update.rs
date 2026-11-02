@@ -305,10 +305,12 @@ pub fn performed_upgrade(outcome: &UpdateCommandOutcome) -> bool {
 /// One line's evidence, case-insensitive: the upgrade verb must lead the
 /// package name.
 fn upgrade_evidence_in_line(line: &str) -> bool {
-    let line = line.trim_start().to_lowercase();
-    let line = line.strip_prefix("==> ").unwrap_or(&line);
-    line.starts_with(&format!("updated {PROJECT_PACKAGE}"))
-        || line.starts_with(&format!("upgrading {PROJECT_PACKAGE}"))
+    line.split('\r').any(|segment| {
+        let segment = segment.trim_start().to_lowercase();
+        let segment = segment.strip_prefix("==> ").unwrap_or(&segment);
+        segment.starts_with(&format!("updated {PROJECT_PACKAGE}"))
+            || segment.starts_with(&format!("upgrading {PROJECT_PACKAGE}"))
+    })
 }
 
 /// The offer's own manager's outcome, when one ran. `do_update` runs both
@@ -354,12 +356,23 @@ pub fn upgraded_version(outcomes: &[UpdateCommandOutcome], source: UpdateSource)
 /// The version token after the last `->` of one evidence line, without the
 /// leading `v` uv prints. Only a token that parses as a version counts.
 fn version_after_arrow(line: &str) -> Option<String> {
-    if !upgrade_evidence_in_line(line) {
-        return None;
+    for segment in line.split('\r') {
+        let trimmed = segment.trim_start().to_lowercase();
+        let stripped = trimmed.strip_prefix("==> ").unwrap_or(&trimmed);
+        if !stripped.starts_with(&format!("updated {PROJECT_PACKAGE}"))
+            && !stripped.starts_with(&format!("upgrading {PROJECT_PACKAGE}"))
+        {
+            continue;
+        }
+        if let Some((_, tail)) = segment.rsplit_once("->") {
+            if let Some(token) = tail.split_whitespace().next().map(|t| t.trim_start_matches('v')) {
+                if parse_version(token).is_some() {
+                    return Some(token.to_owned());
+                }
+            }
+        }
     }
-    let (_, tail) = line.rsplit_once("->")?;
-    let token = tail.split_whitespace().next()?.trim_start_matches('v');
-    parse_version(token).is_some().then(|| token.to_owned())
+    None
 }
 
 /// Why no upgrade happened, for the single failure line: a no-op command's
@@ -424,6 +437,7 @@ pub fn run_was_no_op(outcomes: &[UpdateCommandOutcome], source: UpdateSource) ->
 /// into a pipe, so they are removed and `NO_COLOR` is set on top.
 pub fn plain_output_env(command: &mut Command) -> &mut Command {
     command.env("NO_COLOR", "1");
+    command.env("UV_NO_PROGRESS", "1");
     command.env_remove("FORCE_COLOR");
     command.env_remove("CLICOLOR_FORCE");
     command

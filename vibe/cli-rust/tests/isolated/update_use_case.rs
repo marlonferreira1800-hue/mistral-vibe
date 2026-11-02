@@ -727,6 +727,12 @@ fn upgraded_requires_evidence_in_the_output_not_a_bare_exit_code() {
         output: "Updated mistral-vibe v1 -> v2".to_owned(),
     };
     assert!(performed_upgrade(&updated_line));
+    let carriage_return_progress = UpdateCommandOutcome {
+        command: "uv tool upgrade mistral-vibe".to_owned(),
+        succeeded: true,
+        output: "Downloading mistral-vibe (34.6MiB)\rUpdated mistral-vibe v3.0.3 -> v3.0.4".to_owned(),
+    };
+    assert!(performed_upgrade(&carriage_return_progress));
     // brew's auto-update preamble names taps or Homebrew itself, not the
     // package: not evidence on an exit-0 no-op.
     let tap_update = UpdateCommandOutcome {
@@ -771,6 +777,15 @@ fn upgraded_version_reads_the_managers_own_answer() {
     assert_eq!(
         upgraded_version(std::slice::from_ref(&uv), UpdateSource::Uv),
         Some("2.25.8".to_owned())
+    );
+    let uv_cr = UpdateCommandOutcome {
+        command: "uv tool upgrade mistral-vibe".to_owned(),
+        succeeded: true,
+        output: "Downloading mistral-vibe (34.6MiB)\rUpdated mistral-vibe v3.0.3 -> v3.0.4".to_owned(),
+    };
+    assert_eq!(
+        upgraded_version(std::slice::from_ref(&uv_cr), UpdateSource::Uv),
+        Some("3.0.4".to_owned())
     );
     // The evidence line without an arrow (brew's header) carries no version.
     let brew = UpdateCommandOutcome {
