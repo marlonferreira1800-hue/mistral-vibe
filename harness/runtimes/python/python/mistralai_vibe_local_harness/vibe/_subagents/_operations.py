@@ -17,6 +17,7 @@ from mistralai_vibe_local_harness.vibe._subagents._models import (
     DeletingIdleChild,
     DeletingRunningChild,
     IdleChild,
+    ReservedChild,
     RunningChild,
     SubagentFailure,
     SubagentModel,
@@ -93,7 +94,13 @@ def listed_agent(
 
 def live_child_count(state: SubagentRuntimeState) -> int:
     return sum(
-        not isinstance(child.state, CreationFailedChild | ChildTombstone)
+        isinstance(
+            child.state,
+            ReservedChild
+            | RunningChild
+            | DeletingRunningChild
+            | DeletingIdleChild,
+        )
         for child in state.children.values()
     )
 

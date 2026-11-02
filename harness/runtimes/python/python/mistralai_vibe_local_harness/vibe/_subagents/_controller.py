@@ -884,7 +884,7 @@ class SubagentController:
                             failure(
                                 "subagent_child_limit",
                                 "Subagent child limit reached",
-                                retryable=True,
+                                retryable=running_child_count(state) > 0,
                             )
                         ), {}
                     if running_child_count(state) >= self._limits.max_concurrent_turns:

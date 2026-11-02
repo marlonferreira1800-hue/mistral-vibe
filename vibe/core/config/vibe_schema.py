@@ -957,8 +957,8 @@ class VibeConfigSchema(ConfigSchema):
         default=32,
         ge=1,
         description=(
-            "Maximum number of subagents that can be alive at once; a spawn "
-            "beyond this fails until a subagent is stopped."
+            "Maximum number of subagents that can be active at once; a spawn "
+            "beyond this fails until a subagent finishes or is stopped."
         ),
     )
     max_concurrent_subagents: Annotated[int, WithReplaceMerge()] = Field(
