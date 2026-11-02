@@ -13,6 +13,7 @@ pub const ALACRITTY: &str = "alacritty";
 pub const KITTY: &str = "kitty";
 pub const HYPER: &str = "hyper";
 pub const WINDOWS_TERMINAL: &str = "windows_terminal";
+pub const KONSOLE: &str = "konsole";
 pub const UNKNOWN: &str = "unknown";
 
 /// The hosts the VS Code extension promo targets.
@@ -58,6 +59,7 @@ pub fn from_term_program(term_program: &str) -> Option<&'static str> {
         "alacritty" => Some(ALACRITTY),
         "kitty" => Some(KITTY),
         "hyper" => Some(HYPER),
+        "konsole" => Some(KONSOLE),
         _ => None,
     }
 }
@@ -65,6 +67,9 @@ pub fn from_term_program(term_program: &str) -> Option<&'static str> {
 /// Multiplexer and shell markers.
 pub fn from_env_markers(env: &dyn EnvSource) -> Option<&'static str> {
     let markers = [
+        ("KONSOLE_VERSION", KONSOLE),
+        ("KONSOLE_DBUS_SESSION", KONSOLE),
+        ("KONSOLE_DBUS_SERVICE", KONSOLE),
         ("WEZTERM_PANE", WEZTERM),
         ("GHOSTTY_RESOURCES_DIR", GHOSTTY),
         ("KITTY_WINDOW_ID", KITTY),

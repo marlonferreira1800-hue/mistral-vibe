@@ -189,3 +189,26 @@ fn the_auth_app_owns_the_padding_beside_its_options() {
         Some(MouseTarget::McpOAuth)
     );
 }
+#[test]
+fn wheel_over_composer_without_overflow_scrolls_chat() {
+    let mut app = App::default();
+    app.view.input_area = Rect::new(0, 20, 80, 3);
+    mouse::register_region(&mut app, Rect::new(0, 0, 80, 20), MouseTarget::Transcript);
+    mouse::register_region(&mut app, Rect::new(0, 20, 80, 3), MouseTarget::Composer);
+
+    assert_eq!(app.view.scroll_target, 0);
+    mouse::route(&mut app, mouse(MouseEventKind::ScrollUp, 10, 21));
+    assert_eq!(app.view.scroll_target, mouse::MOUSE_SCROLL_STEP);
+}
+
+#[test]
+fn wheel_over_blocked_or_margin_scrolls_chat_in_composer_focus() {
+    let mut app = App::default();
+    mouse::register_region(&mut app, Rect::new(0, 0, 80, 24), MouseTarget::Blocked);
+    mouse::register_region(&mut app, Rect::new(0, 0, 80, 20), MouseTarget::Transcript);
+
+    assert_eq!(app.view.scroll_target, 0);
+    mouse::route(&mut app, mouse(MouseEventKind::ScrollUp, 10, 22));
+    assert_eq!(app.view.scroll_target, mouse::MOUSE_SCROLL_STEP);
+}
+

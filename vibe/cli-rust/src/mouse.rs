@@ -19,6 +19,7 @@ use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
 use crate::app::App;
+use crate::focus::Focus;
 use crate::selection;
 use crate::server::Client;
 use crate::{
@@ -30,6 +31,8 @@ pub(crate) use dispatch::option_list;
 
 /// Lines a shift+arrow keypress scrolls the transcript.
 pub const KEY_SCROLL_STEP: u16 = 5;
+/// Lines a PageUp/PageDown keypress scrolls the transcript.
+pub const KEY_PAGE_SCROLL_STEP: u16 = 20;
 /// Lines one wheel notch scrolls.
 pub(crate) const MOUSE_SCROLL_STEP: u16 = 2;
 
@@ -219,6 +222,16 @@ pub fn route_at(app: &mut App, event: MouseEvent, row: f64) -> Option<MouseTarge
     }
 }
 
+pub(crate) fn composer_scrollable(app: &App) -> bool {
+    let area = app.view.input_area;
+    if area.height == 0 || area.width == 0 {
+        return false;
+    }
+    let viewport = area.height.saturating_sub(2);
+    let content = crate::ui::chat_input::content_height(app, area.width);
+    content > viewport
+}
+
 /// Route a wheel event to the topmost region under the pointer.
 fn handle_wheel(app: &mut App, event: MouseEvent) -> bool {
     let up = match event.kind {
@@ -227,9 +240,7 @@ fn handle_wheel(app: &mut App, event: MouseEvent) -> bool {
         _ => return false,
     };
     cancel_scrollbar_capture(app);
-    let Some(target) = target_at(app, (event.column, event.row)) else {
-        return true;
-    };
+    let target = target_at(app, (event.column, event.row));
     // Scrolling a bottom-app box moves its text under a screen-anchored selection.
     if app
         .view
@@ -241,31 +252,41 @@ fn handle_wheel(app: &mut App, event: MouseEvent) -> bool {
     match target {
         // The console's wheel scrolls its log and may load older pages, which
         // needs the client: dispatch (not this client-free router) runs it.
-        MouseTarget::DebugConsole => return false,
-        MouseTarget::Transcript => scroll_chat(app, up, MOUSE_SCROLL_STEP),
-        MouseTarget::Composer => scroll_input(app, up),
-        MouseTarget::Completion => completion_manager::wheel(app, !up, MOUSE_SCROLL_STEP as usize),
-        MouseTarget::ThemePicker => theme_picker::navigate(app, !up),
-        MouseTarget::ModelPicker => model_picker::navigate(app, !up),
-        MouseTarget::ThinkingPicker => thinking_picker::navigate(app, !up),
-        MouseTarget::LogLevelPicker => log_level_picker::navigate(app, !up),
-        MouseTarget::ArtifactsModal => crate::artifacts_modal::navigate(app, !up),
-        MouseTarget::ResumePicker => resume_picker::wheel(app, !up),
-        MouseTarget::Mcp
-        | MouseTarget::RemoteProject
-        | MouseTarget::Config
-        | MouseTarget::SubagentList
-        | MouseTarget::Question => {
-            if let Some(list) = option_list(app, target) {
-                list.wheel(!up, MOUSE_SCROLL_STEP as usize);
+        Some(MouseTarget::DebugConsole) => return false,
+        Some(MouseTarget::Transcript) => scroll_chat(app, up, MOUSE_SCROLL_STEP),
+        Some(MouseTarget::Composer) => {
+            if composer_scrollable(app) {
+                scroll_input(app, up);
+            } else {
+                scroll_chat(app, up, MOUSE_SCROLL_STEP);
             }
         }
-        MouseTarget::Plugins => crate::plugins::wheel(app, !up),
-        MouseTarget::ReleaseNotes => crate::release_notes::wheel(app, !up),
-        MouseTarget::ProxySetup => app.proxy_setup.wheel(up, MOUSE_SCROLL_STEP as usize),
-        MouseTarget::ConfigEditor => crate::config_edit::wheel(app, if up { -1 } else { 1 }),
-        MouseTarget::Trust => crate::trust_folders::wheel(app, up),
-        MouseTarget::TodoSidebar => {
+        Some(MouseTarget::Completion) => completion_manager::wheel(app, !up, MOUSE_SCROLL_STEP as usize),
+        Some(MouseTarget::ThemePicker) => theme_picker::navigate(app, !up),
+        Some(MouseTarget::ModelPicker) => model_picker::navigate(app, !up),
+        Some(MouseTarget::ThinkingPicker) => thinking_picker::navigate(app, !up),
+        Some(MouseTarget::LogLevelPicker) => log_level_picker::navigate(app, !up),
+        Some(MouseTarget::ArtifactsModal) => crate::artifacts_modal::navigate(app, !up),
+        Some(MouseTarget::ResumePicker) => resume_picker::wheel(app, !up),
+        Some(
+            MouseTarget::Mcp
+            | MouseTarget::RemoteProject
+            | MouseTarget::Config
+            | MouseTarget::SubagentList
+            | MouseTarget::Question,
+        ) => {
+            if let Some(target) = target {
+                if let Some(list) = option_list(app, target) {
+                    list.wheel(!up, MOUSE_SCROLL_STEP as usize);
+                }
+            }
+        }
+        Some(MouseTarget::Plugins) => crate::plugins::wheel(app, !up),
+        Some(MouseTarget::ReleaseNotes) => crate::release_notes::wheel(app, !up),
+        Some(MouseTarget::ProxySetup) => app.proxy_setup.wheel(up, MOUSE_SCROLL_STEP as usize),
+        Some(MouseTarget::ConfigEditor) => crate::config_edit::wheel(app, if up { -1 } else { 1 }),
+        Some(MouseTarget::Trust) => crate::trust_folders::wheel(app, up),
+        Some(MouseTarget::TodoSidebar) => {
             let scroll = &mut app.todo_sidebar.scroll;
             *scroll = if up {
                 scroll.saturating_sub(MOUSE_SCROLL_STEP as usize)
@@ -273,21 +294,28 @@ fn handle_wheel(app: &mut App, event: MouseEvent) -> bool {
                 scroll.saturating_add(MOUSE_SCROLL_STEP as usize)
             };
         }
-        MouseTarget::Approval => approval::wheel(app, !up),
-        // The wizard's own regions never reach the loop: the wizard is a
-        // pre-session surface with its own mouse handling.
-        MouseTarget::Blocked
-        | MouseTarget::Loading
-        | MouseTarget::Toast
-        | MouseTarget::BottomApp
-        | MouseTarget::McpOAuth
-        | MouseTarget::ConnectorAuth
-        | MouseTarget::BottomBar
-        | MouseTarget::OnboardingThemeList
-        | MouseTarget::OnboardingPreview
-        | MouseTarget::OnboardingLinks
-        | MouseTarget::OnboardingInputs
-        | MouseTarget::TodoRow => {}
+        Some(MouseTarget::Approval) => approval::wheel(app, !up),
+        Some(
+            MouseTarget::Blocked
+            | MouseTarget::Loading
+            | MouseTarget::BottomBar
+            | MouseTarget::TodoRow,
+        )
+        | None => {
+            if app.focus() == Focus::Composer || app.focus() == Focus::SubagentList {
+                scroll_chat(app, up, MOUSE_SCROLL_STEP);
+            }
+        }
+        Some(
+            MouseTarget::Toast
+            | MouseTarget::BottomApp
+            | MouseTarget::McpOAuth
+            | MouseTarget::ConnectorAuth
+            | MouseTarget::OnboardingThemeList
+            | MouseTarget::OnboardingPreview
+            | MouseTarget::OnboardingLinks
+            | MouseTarget::OnboardingInputs,
+        ) => {}
     }
     true
 }

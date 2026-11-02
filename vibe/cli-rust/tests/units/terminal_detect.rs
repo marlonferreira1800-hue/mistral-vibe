@@ -25,6 +25,7 @@ fn term_program_values_map_to_terminals() {
         ("alacritty", Some("alacritty")),
         ("kitty", Some("kitty")),
         ("hyper", Some("hyper")),
+        ("konsole", Some("konsole")),
         ("vscode", None),
         ("", None),
         ("screen", None),
@@ -37,6 +38,9 @@ fn term_program_values_map_to_terminals() {
 #[test]
 fn env_markers_map_to_terminals() {
     let markers = [
+        ("KONSOLE_VERSION", "konsole"),
+        ("KONSOLE_DBUS_SESSION", "konsole"),
+        ("KONSOLE_DBUS_SERVICE", "konsole"),
         ("WEZTERM_PANE", "wezterm"),
         ("GHOSTTY_RESOURCES_DIR", "ghostty"),
         ("KITTY_WINDOW_ID", "kitty"),

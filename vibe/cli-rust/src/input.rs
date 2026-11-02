@@ -10,7 +10,7 @@ use crate::app::{App, Status};
 use crate::commands::{stress, submission};
 use crate::config_write::Scope;
 use crate::focus::Focus;
-use crate::mouse::{scroll_chat, KEY_SCROLL_STEP};
+use crate::mouse::{scroll_chat, KEY_PAGE_SCROLL_STEP, KEY_SCROLL_STEP};
 use crate::quit_manager::QuitConfirmKey;
 use crate::server::Client;
 use crate::utils::input_edit;
@@ -162,13 +162,30 @@ pub fn handle_priority_key(app: &mut App, client: &Arc<Client>, key: KeyEvent) -
         debug_console::toggle(app, client);
         return Some(false);
     }
-    if key.modifiers.contains(KeyModifiers::SHIFT) {
+    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let alt = key.modifiers.contains(KeyModifiers::ALT);
+
+    if (shift || ctrl || alt) && !completion_manager::is_open(app) {
         match key.code {
-            KeyCode::Up => scroll_chat(app, true, KEY_SCROLL_STEP),
-            KeyCode::Down => scroll_chat(app, false, KEY_SCROLL_STEP),
-            _ => return None,
+            KeyCode::Up if shift || ctrl => {
+                scroll_chat(app, true, KEY_SCROLL_STEP);
+                return Some(false);
+            }
+            KeyCode::Down if shift || ctrl => {
+                scroll_chat(app, false, KEY_SCROLL_STEP);
+                return Some(false);
+            }
+            KeyCode::PageUp if shift || ctrl || alt => {
+                scroll_chat(app, true, KEY_PAGE_SCROLL_STEP);
+                return Some(false);
+            }
+            KeyCode::PageDown if shift || ctrl || alt => {
+                scroll_chat(app, false, KEY_PAGE_SCROLL_STEP);
+                return Some(false);
+            }
+            _ => {}
         }
-        return Some(false);
     }
     None
 }
@@ -437,8 +454,20 @@ fn handle_key_inner(
         KeyCode::Down if completion_manager::is_open(app) => {
             completion_manager::navigate(app, true)
         }
-        KeyCode::PageUp if key.modifiers.is_empty() => move_cursor_page(app, false),
-        KeyCode::PageDown if key.modifiers.is_empty() => move_cursor_page(app, true),
+        KeyCode::PageUp if key.modifiers.is_empty() => {
+            if crate::mouse::composer_scrollable(app) {
+                move_cursor_page(app, false);
+            } else {
+                scroll_chat(app, true, KEY_PAGE_SCROLL_STEP);
+            }
+        }
+        KeyCode::PageDown if key.modifiers.is_empty() => {
+            if crate::mouse::composer_scrollable(app) {
+                move_cursor_page(app, true);
+            } else {
+                scroll_chat(app, false, KEY_PAGE_SCROLL_STEP);
+            }
+        }
         // Up/Down move the caret within a multi-line chat input; at the top/bottom
         // they recall input history.
         KeyCode::Up => {
