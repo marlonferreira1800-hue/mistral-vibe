@@ -349,6 +349,7 @@ class _LoadedSessionEntry:
 class _LoadingSession:
     identity: tuple[object, ...]
     completed: asyncio.Future[tuple[str | None, BaseException | None]]
+    task: asyncio.Task[Any] | None = None
 
 
 class _SessionAttachment:
@@ -946,7 +947,7 @@ class UnifiedHarnessSessionBackendHost:  # noqa: PLR0904 - implements the app-se
                 # in-flight turn is running. Publish the capabilities once recovery
                 # leaves Core idle.
                 await self._initialize_integrations(session, push_to_core=False)
-                await session.recover()
+                await asyncio.wait_for(session.recover(), timeout=60.0)
                 await self._push_integration_capabilities(session)
                 stored = await asyncio.to_thread(
                     session._runtime_for_host().stored_session
@@ -4204,21 +4205,32 @@ class UnifiedHarnessSessionBackendHost:  # noqa: PLR0904 - implements the app-se
     ) -> tuple[bool, _LoadingSession]:
         identity = self._bind_identity()
         while True:
+            load_to_wait: _LoadingSession | None = None
             async with self._registry_lock:
                 maintenance = self._maintenance_sessions.get(session_id)
                 if maintenance is None:
                     existing = self._loading_sessions.get(session_id)
                     if existing is not None:
-                        if existing.identity != identity:
-                            raise RuntimeError(
-                                f"session is already loading with different settings: {session_id}"
-                            )
-                        return False, existing
-                    load = _LoadingSession(
-                        identity, asyncio.get_running_loop().create_future()
-                    )
-                    self._loading_sessions[session_id] = load
-                    return True, load
+                        if existing.completed.done() or (
+                            existing.task is not None and existing.task.done()
+                        ):
+                            self._loading_sessions.pop(session_id, None)
+                        elif existing.identity != identity:
+                            load_to_wait = existing
+                        else:
+                            return False, existing
+                    else:
+                        load = _LoadingSession(
+                            identity,
+                            asyncio.get_running_loop().create_future(),
+                            task=asyncio.current_task(),
+                        )
+                        self._loading_sessions[session_id] = load
+                        return True, load
+            if load_to_wait is not None:
+                with suppress(BaseException):
+                    await asyncio.shield(load_to_wait.completed)
+                continue
             await maintenance.wait()
 
     async def _finish_session_load(
