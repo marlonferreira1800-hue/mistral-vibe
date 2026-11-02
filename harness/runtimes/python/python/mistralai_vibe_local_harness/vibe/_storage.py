@@ -5561,6 +5561,7 @@ def _durable_replace(source: Path, target: Path) -> None:
 
 def _windows_replace(source: Path, target: Path) -> None:
     import ctypes
+    import time
     from ctypes import wintypes
 
     windows_ctypes = cast(Any, ctypes)
@@ -5569,10 +5570,22 @@ def _windows_replace(source: Path, target: Path) -> None:
     move_file_ex.restype = wintypes.BOOL
     movefile_replace_existing = 0x1
     movefile_write_through = 0x8
-    if not move_file_ex(
-        str(source), str(target), movefile_replace_existing | movefile_write_through
-    ):
-        raise windows_ctypes.WinError(windows_ctypes.get_last_error())
+
+    # ERROR_ACCESS_DENIED (5) and ERROR_SHARING_VIOLATION (32): transient external
+    # file/directory handles (antivirus scanners, search indexers, shell processes)
+    # can briefly lock files inside the directory during move. Retry with backoff.
+    transient_errors = (5, 32)
+    last_error = 0
+    for attempt in range(6):
+        if move_file_ex(
+            str(source), str(target), movefile_replace_existing | movefile_write_through
+        ):
+            return
+        last_error = windows_ctypes.get_last_error()
+        if last_error not in transient_errors:
+            break
+        time.sleep(0.05 * (2**attempt))
+    raise windows_ctypes.WinError(last_error)
 
 
 def _is_windows() -> bool:
