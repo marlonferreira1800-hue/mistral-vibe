@@ -395,3 +395,87 @@ def test_denying_the_skill_tool_denies_plugin_skills_too(tmp_path: Path) -> None
     # Withheld from Core, not from the user: `/toolkit:deploy` injects the body
     # out of the payload map without Core ever loading the skill itself.
     assert "toolkit:deploy" in {skill.name for skill in denied.catalogue}
+
+
+def test_discover_session_skills_retains_catalog_when_session_filtered(
+    tmp_path: Path,
+) -> None:
+    from vibe.core.config import VibeConfigSchema
+    from vibe.core.config.harness_files import HarnessFilesManager
+    from mistralai_vibe_local_harness.vibe._subagents._configuration import (
+        resolve_subagent_configuration,
+        resolve_declared_agent_types,
+    )
+    from mistralai_vibe_local_harness.vibe.plugins import DeclaredAgentTypeProfile
+    from mistralai_vibe_local_harness.vibe import LocalRuntimeAdapterConfig
+    from mistralai_vibe_local_harness.protocol import (
+        RustHarnessConfig,
+        RustHarnessSettings,
+        RustTurnSettings,
+        RustContextSettings,
+        RustToolSettings,
+        RustHarnessCapabilitySet,
+    )
+
+    from tests.skills.conftest import create_skill
+    create_skill(tmp_path / 'skills', 'test-skill-a', 'Test skill A')
+    create_skill(tmp_path / 'skills', 'test-skill-b', 'Test skill B')
+
+    from tests.conftest import build_test_vibe_config
+    config = build_test_vibe_config(
+        skill_paths=[tmp_path / 'skills'],
+        enabled_skills=['test-skill-a'],
+    )
+
+    _, projection = discover_session_skills(
+        lambda: config,
+        harness_files=HarnessFilesManager(sources=(), cwd=tmp_path),
+        plugin_skills={},
+        plugin_contexts=(),
+        skill_tool_available=True,
+    )
+
+    # Session only gets skill-a
+    assert [s.name for s in projection.definitions] == ['test-skill-a']
+    assert 'test-skill-a' in projection.model_payloads
+    assert 'test-skill-b' not in projection.model_payloads
+
+    # Catalog retains both
+    catalog_names = {s.name for s in projection.catalog_definitions}
+    assert 'test-skill-a' in catalog_names
+    assert 'test-skill-b' in catalog_names
+    assert 'test-skill-b' in projection.catalog_payloads
+
+    # Subagent enabling test-skill-b resolves against catalog
+    adapter = LocalRuntimeAdapterConfig(
+        skills=projection.model_payloads,
+        catalog_skills=projection.catalog_payloads,
+        catalog_skill_definitions=projection.catalog_definitions,
+    )
+    from mistralai_vibe_local_harness.vibe._host import _core_config
+    harness_config = _core_config('test').model_copy(
+        update={'capabilities': RustHarnessCapabilitySet(skills=list(projection.definitions))}
+    )
+    subagent_conf = resolve_subagent_configuration(
+        harness_config,
+        adapter,
+        materialization_root=tmp_path,
+    )
+    profile = DeclaredAgentTypeProfile(
+        agent_type='analyst',
+        description='Analyst',
+        profile_path=str(tmp_path / 'analyst.toml'),
+        tool_ceiling={},
+        enabled_skills=['test-skill-b'],
+        authority_digest='digest-123',
+    )
+    resolved = resolve_declared_agent_types(
+        subagent_conf,
+        adapter,
+        [profile],
+    )
+    child_binding = resolved.bindings['analyst']
+    child_skills = [s.name for s in child_binding.core_config.capabilities.skills]
+    assert 'test-skill-b' in child_skills
+    assert 'test-skill-a' not in child_skills
+    assert 'test-skill-b' in child_binding.adapter_config.skills

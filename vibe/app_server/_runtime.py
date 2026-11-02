@@ -1865,6 +1865,8 @@ class HarnessProcess:
                     provided_tool_mode=_rust_provided_tool_mode(gate),
                     permission_resolver=permission_resolver.resolve,
                     skills=skills.model_payloads,
+                    catalog_skills=skills.catalog_payloads,
+                    catalog_skill_definitions=skills.catalog_definitions,
                     correlation_id_sink=correlation.record,
                     request_sent_sink=subagent_steps.counting(request_sent.record),
                     malformed_tool_calls_sink=malformed_tool_calls.record,

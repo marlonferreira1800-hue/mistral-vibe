@@ -14,7 +14,7 @@ stays on this side of the seam, exactly as it does for plugins.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -63,6 +63,8 @@ class SkillProjection:
     model_payloads: Mapping[str, str]
     plugin_contexts: tuple[RustPluginContextDefinition, ...]
     catalogue: tuple[SkillInfo, ...]
+    catalog_definitions: tuple[RustSkillDefinition, ...] = ()
+    catalog_payloads: Mapping[str, str] = field(default_factory=dict)
 
 
 def discover_session_skills(
@@ -88,10 +90,14 @@ def discover_session_skills(
         )
     ]
     root_skills = manager.available_skills
+    catalog_root_skills = manager.discovered_skills
     if sandbox is not None:
         issues.extend(sandbox.issues)
         root_skills = _with_project_skills(
             root_skills, sandbox.project_skills, config()
+        )
+        catalog_root_skills = _with_project_skills(
+            catalog_root_skills, sandbox.project_skills, config(), filter_skills=False
         )
     contexts = tuple(plugin_contexts)
     projection = project_core_skills(
@@ -100,8 +106,22 @@ def discover_session_skills(
         plugin_contexts=contexts,
         locate=None if sandbox is None else sandbox.locate,
     )
+    catalog_projection = project_core_skills(
+        catalog_root_skills,
+        plugin_skills=plugin_skills,
+        plugin_contexts=contexts,
+        locate=None if sandbox is None else sandbox.locate,
+    )
     if skill_tool_available:
-        return issues, projection
+        return issues, SkillProjection(
+            definitions=projection.definitions,
+            payloads=projection.payloads,
+            model_payloads=projection.model_payloads,
+            plugin_contexts=projection.plugin_contexts,
+            catalogue=projection.catalogue,
+            catalog_definitions=catalog_projection.definitions,
+            catalog_payloads=catalog_projection.model_payloads,
+        )
     return (
         issues,
         SkillProjection(
@@ -110,6 +130,8 @@ def discover_session_skills(
             model_payloads={},
             plugin_contexts=tuple(_without_skills(context) for context in contexts),
             catalogue=projection.catalogue,
+            catalog_definitions=catalog_projection.definitions,
+            catalog_payloads=catalog_projection.model_payloads,
         ),
     )
 
@@ -118,6 +140,8 @@ def _with_project_skills(
     root_skills: Mapping[str, SkillInfo],
     project_skills: Mapping[str, SkillInfo],
     config: VibeConfigSchema,
+    *,
+    filter_skills: bool = True,
 ) -> Mapping[str, SkillInfo]:
     """Rank a sandbox's project skills as the host ranks its own.
 
@@ -135,11 +159,12 @@ def _with_project_skills(
         name: skill for name, skill in root_skills.items() if is_configured(skill)
     }
     for name, skill in project_skills.items():
-        if config.enabled_skills:
-            if not name_matches(name, config.enabled_skills):
+        if filter_skills:
+            if config.enabled_skills:
+                if not name_matches(name, config.enabled_skills):
+                    continue
+            elif name_matches(name, config.disabled_skills):
                 continue
-        elif name_matches(name, config.disabled_skills):
-            continue
         merged.setdefault(name, skill)
     for name, skill in root_skills.items():
         merged.setdefault(name, skill)

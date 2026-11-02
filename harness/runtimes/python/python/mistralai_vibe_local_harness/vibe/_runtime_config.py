@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Literal
@@ -8,6 +8,7 @@ from typing import Literal
 from mistralai_vibe_local_harness.protocol import (
     RustHarnessConfig,
     RustRuntimeBuiltinToolName,
+    RustSkillDefinition,
 )
 from mistralai_vibe_local_harness.session_protocol import PublicRetryCategory
 from mistralai_vibe_local_harness.vibe._credentials import (
@@ -414,6 +415,10 @@ class LocalRuntimeAdapterConfig:
     request_sent_sink: RequestSentSink | None = None
     malformed_tool_calls_sink: MalformedToolCallsSink | None = None
     skills: Mapping[str, str] = field(default_factory=dict)
+    catalog_skills: Mapping[str, str] = field(default_factory=dict)
+    catalog_skill_definitions: Sequence[RustSkillDefinition] = field(
+        default_factory=tuple
+    )
     # Where workspace file and shell tools run. None runs them on this host;
     # an adapter runs them in its Sandbox Environment, whose paths ``workspace``
     # then names. Session storage, attachments, provided tools, MCP servers

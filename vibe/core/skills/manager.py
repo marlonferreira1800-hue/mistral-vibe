@@ -125,6 +125,9 @@ class SkillManager:
         self._search_paths = self._compute_search_paths(self._config)
         self._config_issues: list[SkillConfigIssue] = []
         self._discovered = self._discover_skills()
+        self.discovered_skills: Mapping[str, SkillInfo] = MappingProxyType(
+            self._discovered
+        )
         self.available_skills: Mapping[str, SkillInfo] = MappingProxyType(
             self._apply_filters(self._discovered)
         )

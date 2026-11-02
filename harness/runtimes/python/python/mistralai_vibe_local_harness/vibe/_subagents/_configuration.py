@@ -229,6 +229,11 @@ def _declared_binding(
         ),
     )
     # Filter both what Core advertises and what the Runtime answers ``skill.read`` with.
+    skill_defs = (
+        adapter.catalog_skill_definitions
+        if adapter.catalog_skill_definitions
+        else child_config.capabilities.skills
+    )
     child_config = child_config.model_copy(
         update={
             "capabilities": child_config.capabilities.model_copy(
@@ -236,7 +241,7 @@ def _declared_binding(
                     "tool_groups": [],
                     "skills": [
                         skill
-                        for skill in child_config.capabilities.skills
+                        for skill in skill_defs
                         if profile.allows_skill(skill.name)
                     ],
                 },
@@ -253,12 +258,13 @@ def _declared_binding(
             completion.model_facts,
             compacts_on_route=_compacts_on_route(adapter, completion),
         )
+    skills_source = adapter.catalog_skills if adapter.catalog_skills else adapter.skills
     child_adapter = replace(
         adapter,
         env=dict(adapter.env),
         skills={
             name: content
-            for name, content in adapter.skills.items()
+            for name, content in skills_source.items()
             if profile.allows_skill(name)
         },
         tool_modes={
@@ -503,13 +509,14 @@ def _policy_ceiling(
         )
         for name, mode in sorted(adapter.tool_modes.items())
     }
+    ceiling_skills = adapter.catalog_skills if adapter.catalog_skills else adapter.skills
     skill_grants = {
         name: ResolvedContentGrant(
             binding_id=f"skill:{name}",
             content_digest=_digest(content),
             allowed_tool_names=[],
         )
-        for name, content in sorted(adapter.skills.items())
+        for name, content in sorted(ceiling_skills.items())
     }
     source_grants = {
         group.name: ResolvedSourceGrant(
