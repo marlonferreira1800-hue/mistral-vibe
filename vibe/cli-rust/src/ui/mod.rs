@@ -39,6 +39,7 @@ mod question_rows;
 pub mod recording_indicator;
 pub mod release_notes;
 pub mod resume_picker;
+pub mod startup_menu;
 pub mod rewind;
 pub mod rng;
 pub mod scrollbar;
@@ -102,6 +103,11 @@ fn draw_active_screen(app: &mut App, f: &mut Frame, area: ratatui::layout::Rect)
         trust_folders::draw(app, f, area);
         return;
     }
+    // The startup menu owns the whole screen while it is open.
+    if app.startup_menu.open {
+        startup_menu::draw(app, f, area);
+        return;
+    }
     // Docked, not an overlay: reserving the columns first lets bottom-apps reflow into the rest.
     let (main, sidebar) = todo::split(app, area);
     app.todo_sidebar.visible = sidebar.is_some();
@@ -125,6 +131,7 @@ fn draw_session_screen(app: &mut App, f: &mut Frame, area: ratatui::layout::Rect
         Focus::VoiceApp => voice_app::draw(app, f, area),
         Focus::ProxySetup => proxy_setup::draw(app, f, area),
         Focus::VibeCodeProject => vibe_code_project::draw(app, f, area),
+        Focus::StartupMenu => draw_base(app, f, area),
         Focus::ResumePicker => resume_picker::draw(app, f, area),
         Focus::Mcp => mcp::draw(app, f, area),
         Focus::Plugins => plugins::draw(app, f, area),

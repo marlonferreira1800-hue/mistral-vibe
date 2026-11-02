@@ -197,6 +197,11 @@ fn handle_input_event(
                 | Focus::LogLevelPicker
                 | Focus::ThinkingPicker
                 | Focus::ArtifactsModal => {}
+                Focus::StartupMenu => {
+                    // Pasting dismisses the menu into the composer.
+                    crate::startup_menu::close(app);
+                    input::handle_paste(app, text)
+                }
                 Focus::Question => crate::question_input::handle_paste(app, text),
                 Focus::ProxySetup => crate::proxy_setup::paste(app, &text),
                 Focus::Config => config::handle_paste(app, text),
@@ -263,6 +268,14 @@ fn dispatch_key(
         Focus::VoiceApp => crate::voice_app::handle_key(app, client, key),
         Focus::ProxySetup => crate::proxy_setup::handle_key(app, client, key),
         Focus::VibeCodeProject => crate::vibe_code_project::input::handle_key(app, client, key),
+        Focus::StartupMenu => {
+            if crate::startup_menu::wants_text(&key) {
+                // Typing dismisses the menu and lands in the composer.
+                crate::startup_menu::close(app);
+                return input::handle_key(app, client, config_tx, key);
+            }
+            return crate::startup_menu::handle_key(app, client, key);
+        }
         Focus::ResumePicker => crate::resume_picker::handle_key(app, client, key),
         Focus::Mcp => input::handle_mcp_key(app, client, key),
         Focus::Plugins => crate::plugins::handle_key(app, client, key),

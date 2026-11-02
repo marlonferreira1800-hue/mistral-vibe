@@ -76,6 +76,8 @@ pub enum StartupEvent {
     Sessions(Box<Value>),
     Config(Box<StartupConfig>),
     Ready(Box<Ready>),
+    /// Bare interactive launch: show the startup menu (new / resume / quit).
+    OpenStartupMenu,
     Failed(String),
     /// Missing API key; the pre-session wizard round must run. `env_key`
     /// is the server's derived env var name, surfaced with the guard's
@@ -354,6 +356,12 @@ async fn handshake_inner(
         })))
         .await
         .context("startup event receiver closed")?;
+
+    // A bare `vibe` (no --continue/--resume, no initial prompt) opens the
+    // startup menu once the session is ready.
+    if matches!(resume, StartupResume::None) {
+        let _ = event_tx.send(StartupEvent::OpenStartupMenu).await;
+    }
     Ok(())
 }
 

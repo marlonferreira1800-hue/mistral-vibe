@@ -53,6 +53,12 @@ pub fn apply_startup_event(
             resume_picker::open_listed(app, client, &value);
             false
         }
+        StartupEvent::OpenStartupMenu => {
+            if app.session.initial_prompt.is_none() {
+                crate::startup_menu::open(app);
+            }
+            false
+        }
         StartupEvent::Config(config) => {
             show_startup_config(app, *config);
             false

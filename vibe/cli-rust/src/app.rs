@@ -793,6 +793,7 @@ pub struct App {
     pub thinking_picker: ThinkingPicker,
     pub artifacts_modal: ArtifactsModal,
     pub resume_picker: ResumePicker,
+    pub startup_menu: crate::startup_menu::StartupMenu,
     pub vibe_code_project: crate::vibe_code_project::State,
     /// The running `/teleport` operation, if any.
     pub teleport: Option<crate::teleport::Operation>,

@@ -87,6 +87,7 @@ pub mod session_exit;
 pub mod setup;
 pub mod skill;
 pub mod startup;
+pub mod startup_menu;
 pub mod subagents;
 pub mod telemetry;
 pub mod teleport;
