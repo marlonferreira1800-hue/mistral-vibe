@@ -8,6 +8,9 @@ use ratatui::style::Color;
 pub fn truecolor() -> bool {
     static TRUECOLOR: OnceLock<bool> = OnceLock::new();
     *TRUECOLOR.get_or_init(|| {
+        if crate::terminal::is_gnu_screen() {
+            return false;
+        }
         cfg!(windows) || advertises_truecolor(std::env::var("COLORTERM").ok().as_deref())
     })
 }

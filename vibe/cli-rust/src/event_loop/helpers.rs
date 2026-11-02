@@ -166,9 +166,12 @@ pub(super) fn step_scroll(app: &mut App, replaying: bool) {
 }
 
 pub(super) fn draw_synchronized(terminal: &mut crate::terminal::Tui, app: &mut App) -> Result<()> {
-    use crossterm::SynchronizedUpdate;
-
-    std::io::stdout().sync_update(|_| crate::terminal::draw(terminal, app))??;
+    if crate::terminal::supports_synchronized_update() {
+        use crossterm::SynchronizedUpdate;
+        std::io::stdout().sync_update(|_| crate::terminal::draw(terminal, app))??;
+    } else {
+        crate::terminal::draw(terminal, app)?;
+    }
     crate::pointer::sync(app);
     crate::terminal_notifier::flush(app);
     Ok(())

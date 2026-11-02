@@ -8,9 +8,43 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use crossterm::style::Print;
+use std::sync::OnceLock;
+
 use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 
 use crate::resync_backend::ResyncBackend;
+
+/// Pure helper for testing GNU screen environment detection.
+pub fn is_gnu_screen_under(sty: Option<&str>, term: Option<&str>, tmux: Option<&str>) -> bool {
+    if sty.is_some() {
+        return true;
+    }
+    let term = term.unwrap_or_default();
+    term.starts_with("screen") && tmux.is_none()
+}
+
+/// Returns whether the terminal is running inside GNU screen.
+pub fn is_gnu_screen() -> bool {
+    static IS_SCREEN: OnceLock<bool> = OnceLock::new();
+    *IS_SCREEN.get_or_init(|| {
+        let sty = std::env::var("STY").ok();
+        let term = std::env::var("TERM").ok();
+        let tmux = std::env::var("TMUX").ok();
+        is_gnu_screen_under(sty.as_deref(), term.as_deref(), tmux.as_deref())
+    })
+}
+
+/// Returns whether the terminal supports synchronized output (DECSET 2026).
+pub fn supports_synchronized_update() -> bool {
+    static SUPPORTS: OnceLock<bool> = OnceLock::new();
+    *SUPPORTS.get_or_init(|| {
+        if is_gnu_screen() {
+            return false;
+        }
+        let term = std::env::var("TERM").unwrap_or_default();
+        term != "dumb"
+    })
+}
 
 pub type Tui = ratatui::Terminal<ResyncBackend<std::io::Stdout>>;
 
@@ -144,7 +178,7 @@ impl TerminalGuard {
         execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange)?;
         sync_pixel_reports()?;
         // Unsupported Unix terminals ignore the push; Windows rejects the command.
-        if cfg!(unix) && std::env::var_os("VIBE_REPLAY_FIXTURE").is_none() {
+        if cfg!(unix) && std::env::var_os("VIBE_REPLAY_FIXTURE").is_none() && !is_gnu_screen() {
             execute!(
                 std::io::stdout(),
                 PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)

@@ -4,6 +4,14 @@ use ratatui::style::Color;
 use vibe_rs::ui::theme::color_system::{advertises_truecolor, downgrade};
 
 #[test]
+fn gnu_screen_detection_and_synchronized_update_support() {
+    assert!(!vibe_rs::terminal::is_gnu_screen_under(None, Some("xterm-256color"), None));
+    assert!(!vibe_rs::terminal::is_gnu_screen_under(None, Some("screen-256color"), Some("tmux_session")));
+    assert!(vibe_rs::terminal::is_gnu_screen_under(Some("12345.pts-0.host"), Some("screen"), None));
+    assert!(vibe_rs::terminal::is_gnu_screen_under(None, Some("screen.xterm-256color"), None));
+}
+
+#[test]
 fn only_a_truecolor_colorterm_advertises_truecolor() {
     assert!(advertises_truecolor(Some("truecolor")));
     assert!(advertises_truecolor(Some(" 24BIT ")));

@@ -231,8 +231,7 @@ fn draw(
     app: &mut App,
     wizard: &mut OnboardingState,
 ) -> Result<()> {
-    use crossterm::SynchronizedUpdate;
-    std::io::stdout().sync_update(|_| {
+    let draw_fn = |terminal: &mut crate::terminal::Tui| {
         terminal.draw(|f| {
             app.chat_input.normalize_positions();
             app.view.mouse_regions.clear();
@@ -240,7 +239,13 @@ fn draw(
             app.view.link_hitmap.clear();
             super::paint::draw(app, wizard, f, f.area());
         })
-    })??;
+    };
+    if crate::terminal::supports_synchronized_update() {
+        use crossterm::SynchronizedUpdate;
+        std::io::stdout().sync_update(|_| draw_fn(terminal))??;
+    } else {
+        draw_fn(terminal)?;
+    }
     crate::pointer::sync(app);
     crate::terminal_notifier::flush(app);
     Ok(())
