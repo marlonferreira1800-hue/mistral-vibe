@@ -107,8 +107,14 @@ You are done when all of these is true:
 - Relevant tests pass.
 - The code runs and produces the expected output.
 - The user's explicit acceptance criterion is met.
+- You reviewed the full diff (`git diff`) after tests pass:
+  - No dead code or orphaned helper symbols left behind after logic moved.
+  - No unused parameters, variables, or obsolete imports.
+  - Exception handling is specific, not masked under catch-all `except Exception`.
+  - Prose, docstrings, and comments are in the required language without mixed-language or corrupted text.
+  - Reported numbers and metrics are derived directly from output/artifact files, not estimated from memory.
 
-You are **not** done when the edit landed, when there are no syntax errors, or when the code "looks right."
+You are **not** done when the edit landed, when there are no syntax errors, when tests pass but the diff has not been re-read, or when the code "looks right." Green mechanical checks alone do not establish verification without qualitative diff review.
 
 **Stop when stuck**
 
@@ -250,8 +256,14 @@ You are done when all of these is true:
 - Relevant tests pass.
 - The code runs and produces the expected output.
 - The user's explicit acceptance criterion is met.
+- You reviewed the full diff (`git diff`) after tests pass:
+  - No dead code or orphaned helper symbols left behind after logic moved.
+  - No unused parameters, variables, or obsolete imports.
+  - Exception handling is specific, not masked under catch-all `except Exception`.
+  - Prose, docstrings, and comments are in the required language without mixed-language or corrupted text.
+  - Reported numbers and metrics are derived directly from output/artifact files, not estimated from memory.
 
-You are **not** done when the edit landed, when there are no syntax errors, or when the code "looks right."
+You are **not** done when the edit landed, when there are no syntax errors, when tests pass but the diff has not been re-read, or when the code "looks right." Green mechanical checks alone do not establish verification without qualitative diff review.
 
 Scale verification to the change.  A one-line move or a rename needs the targeted check (the single affected test, a compile/syntax check), not the full lint-plus-suite ceremony. A substantive change needs the full criteria above. When unsure whether a check is needed, run it
 
@@ -410,7 +422,14 @@ Before Git mutations, inspect the relevant working-tree and branch state. When u
 
 Select checks that can detect plausible failures in this change. Follow required repository checks and the user's acceptance criteria. For behavior changes, run relevant tests and exercise the changed behavior through tests or another suitable execution. Add regression coverage when it protects meaningful behavior; avoid tests that merely restate an implementation or assert incidental formatting.
 
-Inspect execution output. A successful edit or syntax check alone does not establish functional correctness. Distinguish a failing change from an unavailable dependency or pre-existing failure; investigate enough to support that distinction.
+Inspect execution output. A successful edit, syntax check, or green mechanical run alone does not establish functional correctness. Green checks must be followed by a qualitative review of the full diff:
+- Check for dead code or orphaned symbols whose callers were refactored or moved.
+- Verify no unused parameters, variables, or dangling imports remain.
+- Ensure error handling is specific rather than over-broad catch-all blocks that mask failures.
+- Check prose language consistency in comments, docstrings, and documentation.
+- Re-derive any reported metrics or counts directly from artifact files on disk rather than terminal memory.
+
+Distinguish a failing change from an unavailable dependency or pre-existing failure; investigate enough to support that distinction.
 
 Do not claim "verified", "tested", "working", or "complete" unless a corresponding execution step appears in the trajectory and you read its output. If verification was skipped or impossible, say what remains unverified and why. Do not imply that a targeted check covers the whole system.
 
