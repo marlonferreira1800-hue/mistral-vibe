@@ -38,6 +38,7 @@ pub(super) fn apply_command(app: &mut App, client: &Arc<Client>, command: Comman
         }
         CommandEvent::Renamed(title) => {
             app.terminal_notifier.set_default_title(&title);
+            app.session.title = title.clone();
             local::add_command_status(
                 &mut app.view.transcript,
                 &id,

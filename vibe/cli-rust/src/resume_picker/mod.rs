@@ -232,6 +232,7 @@ pub fn apply_event(app: &mut App, client: &Arc<Client>, event: Event) {
             app.set_session_id(state.session.id.clone());
             app.terminal_notifier
                 .set_default_title(state.session.title.as_deref().unwrap_or(""));
+            app.session.title = state.session.title.clone().unwrap_or_default();
             app.session.resumed = true;
             app.session.active_turn_id = None;
             // Reset the usage baseline at resume adopt: the exit delta

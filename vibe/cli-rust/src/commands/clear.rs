@@ -97,6 +97,7 @@ pub fn apply_cleared(
 ) {
     reset_transcript(app);
     app.terminal_notifier.set_default_title("");
+    app.session.title.clear();
     app.set_session_id(session_id);
     app.session.active_turn_id = None;
     // The cleared replacement owns its own child sessions.

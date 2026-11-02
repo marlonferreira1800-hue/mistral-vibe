@@ -219,6 +219,8 @@ pub struct Session {
     pub startup_error: Option<String>,
     /// The `--continue`/`--resume` intent, consumed once after `ready`.
     pub startup_resume: StartupResume,
+    /// Session title (sessionLog/meta.json), shown in the footer.
+    pub title: String,
     /// The interactive CLI flags, resent on every resume.
     pub agent_config: crate::server::AgentConfig,
     /// The positional `vibe <prompt>` argument, sent once startup has converged.

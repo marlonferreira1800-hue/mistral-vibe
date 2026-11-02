@@ -48,6 +48,12 @@ pub fn draw(app: &mut App, f: &mut Frame, area: Rect) {
             .map(collapse_home)
             .unwrap_or_else(|| "-".into()),
     );
+    let session_title = app.session.title.trim();
+    let left_text = if session_title.is_empty() {
+        cwd.clone()
+    } else {
+        format!("{session_title} · {cwd}")
+    };
     let muted = theme::muted_style();
     // Token budget, empty until the first `session/statsUpdated` stats arrive.
     let counter = format_context(app.session.tokens);
@@ -68,7 +74,7 @@ pub fn draw(app: &mut App, f: &mut Frame, area: Rect) {
     });
     // The quit hint, a one-cell spacer and the counter stay; the cwd and model share the rest.
     let fixed = quit.as_ref().map_or(0, Line::width);
-    let cwd_cells = if quit.is_some() { 0 } else { cwd.width() };
+    let cwd_cells = if quit.is_some() { 0 } else { left_text.width() };
     let room = (area.width as usize).saturating_sub(counter.width() + 1 + fixed);
     let separator = if counter.is_empty() {
         0
@@ -78,7 +84,7 @@ pub fn draw(app: &mut App, f: &mut Frame, area: Rect) {
     let (cwd_width, model_width) = split_room(room, cwd_cells, model.width(), separator);
     let model = ellipsize(model, model_width);
     let right = Line::from(Span::styled(right_text(&model, &counter), muted));
-    let left = quit.unwrap_or_else(|| Line::from(Span::styled(ellipsize(&cwd, cwd_width), muted)));
+    let left = quit.unwrap_or_else(|| Line::from(Span::styled(ellipsize(&left_text, cwd_width), muted)));
     // `#spacer` `width: 1fr`: the right context sits at the edge.
     let left_width = (left.width() as u16).min(area.width);
     // The `1fr` spacer never collapses below one cell.

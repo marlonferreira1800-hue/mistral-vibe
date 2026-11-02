@@ -202,9 +202,10 @@ fn apply_ready(
         }
     };
     crate::terminal_notifier::configure(app, &runtime);
+    let title = runtime["sessionLog"]["title"].as_str();
+    let title = title.or(state.session.title.as_deref()).unwrap_or("");
+    app.session.title = title.to_owned();
     if !app.session.resumed {
-        let title = runtime["sessionLog"]["title"].as_str();
-        let title = title.or(state.session.title.as_deref()).unwrap_or("");
         app.terminal_notifier.set_default_title(title);
     }
     app.subagents.status_list_enabled = startup::read_show_subagent_status_list(&runtime);
@@ -590,6 +591,7 @@ pub fn apply_notification(app: &mut App, client: &Arc<Client>, event: &Notificat
             if entry.detail_kind() == Some("session_title_updated") {
                 if let Some(title) = &entry.detail.title {
                     app.terminal_notifier.set_default_title(title);
+                    app.session.title = title.clone();
                 }
             }
             if let Some(entry_id) = &entry.id {
