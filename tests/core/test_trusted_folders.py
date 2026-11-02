@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 import tomli_w
 
-from vibe.core.paths import AGENTS_MD_FILENAME, TRUSTED_FOLDERS_FILE
+from vibe.core.paths import AGENTS_MD_FILENAME, TRUSTED_FOLDERS_FILE, WORKTREES_DIR
 from vibe.core.trusted_folders import (
     TrustedFoldersManager,
     WorkspaceTrustStatus,
@@ -86,6 +86,7 @@ class TestTrustedFoldersManager:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
         manager = TrustedFoldersManager()
 
         manager.add_trusted(Path("~/test"))
@@ -234,6 +235,19 @@ class TestTrustedFoldersManager:
             manager.add_trusted(tmp_path)
 
         assert manager.is_trusted(tmp_path) is True
+
+    def test_vibe_home_worktrees_are_automatically_trusted(self) -> None:
+        manager = TrustedFoldersManager()
+        worktree_path = WORKTREES_DIR.path.resolve() / "bucket" / "feature-1"
+        assert manager.is_trusted(worktree_path) is True
+        assert manager.trust_status(worktree_path) == WorkspaceTrustStatus.TRUSTED
+
+    def test_explicitly_untrusted_worktree_overrides_automatic_trust(self) -> None:
+        manager = TrustedFoldersManager()
+        worktree_path = WORKTREES_DIR.path.resolve() / "bucket" / "untrusted-feature"
+        manager.add_untrusted(worktree_path)
+        assert manager.is_trusted(worktree_path) is False
+        assert manager.trust_status(worktree_path) == WorkspaceTrustStatus.UNTRUSTED
 
 
 class TestSessionTrustScopes:

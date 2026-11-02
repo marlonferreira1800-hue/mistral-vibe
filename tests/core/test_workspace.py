@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vibe.core.tools.utils import is_path_within_workdir
+from vibe.core.paths import WORKTREES_DIR
+from vibe.core.tools.models import ToolPermission
+from vibe.core.tools.utils import is_path_within_workdir, resolve_file_tool_permission
 from vibe.core.workspace import Workspace
 
 
@@ -50,3 +52,28 @@ def test_relative_paths_still_resolve_against_the_working_directory(
 
     assert is_path_within_workdir("file.txt", workspace=workspace)
     assert not is_path_within_workdir("../file.txt", workspace=workspace)
+
+
+def test_worktrees_under_vibe_home_are_always_authorised(tmp_path: Path) -> None:
+    workspace = Workspace.for_session(tmp_path)
+    worktree_file = WORKTREES_DIR.path.resolve() / "bucket" / "worktree-1" / "src" / "main.py"
+
+    assert workspace.allows(worktree_file)
+    assert is_path_within_workdir(str(worktree_file), workspace=workspace)
+
+
+def test_file_tool_permission_allows_vibe_worktree_without_outside_prompt(tmp_path: Path) -> None:
+    workspace = Workspace.for_session(tmp_path)
+    worktree_file = WORKTREES_DIR.path.resolve() / "bucket" / "my-worktree" / "file.txt"
+
+    result = resolve_file_tool_permission(
+        str(worktree_file),
+        tool_name="read_file",
+        allowlist=[],
+        denylist=[],
+        config_permission=ToolPermission.ALWAYS,
+        sensitive_patterns=[],
+        workspace=workspace,
+    )
+    # Inside workdir boundary (no OUTSIDE_DIRECTORY permission requested)
+    assert result is None

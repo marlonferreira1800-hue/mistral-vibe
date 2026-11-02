@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from vibe.core.paths import dedup_paths
+from vibe.core.paths import WORKTREES_DIR, dedup_paths
 
 
 @dataclass(frozen=True)
@@ -36,4 +36,9 @@ class Workspace:
 
     def allows(self, resolved_path: Path) -> bool:
         """Whether an already-resolved path lies inside the write boundary."""
-        return any(resolved_path.is_relative_to(root) for root in self.authorized_roots)
+        if any(resolved_path.is_relative_to(root) for root in self.authorized_roots):
+            return True
+        try:
+            return resolved_path.is_relative_to(WORKTREES_DIR.path.resolve())
+        except (ValueError, OSError):
+            return False

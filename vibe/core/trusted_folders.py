@@ -11,6 +11,7 @@ import tomli_w
 from vibe.core.paths import (
     AGENTS_MD_FILENAME,
     TRUSTED_FOLDERS_FILE,
+    WORKTREES_DIR,
     find_local_config_dirs,
 )
 from vibe.observability.logging import logger
@@ -281,12 +282,18 @@ class TrustedFoldersManager:
     def _closest_decision(self, path: Path) -> tuple[bool, Path] | None:
         """``(trusted, ancestor)`` for the closest decision, ``None`` if undecided."""
         current = Path(self._normalize_path(path))
+        try:
+            worktrees_root = Path(self._normalize_path(WORKTREES_DIR.path))
+        except (ValueError, OSError):
+            worktrees_root = None
         while True:
             s = str(current)
             if s in self._trusted or s in self._session_trusted:
                 return True, current
             if s in self._untrusted:
                 return False, current
+            if worktrees_root is not None and current == worktrees_root:
+                return True, current
             if current.parent == current:
                 return None
             current = current.parent
@@ -301,6 +308,10 @@ class TrustedFoldersManager:
 
     def trust_status(self, path: Path) -> WorkspaceTrustStatus:
         current = Path(self._normalize_path(path))
+        try:
+            worktrees_root = Path(self._normalize_path(WORKTREES_DIR.path))
+        except (ValueError, OSError):
+            worktrees_root = None
         while True:
             s = str(current)
             if s in self._session_trusted:
@@ -309,6 +320,8 @@ class TrustedFoldersManager:
                 return WorkspaceTrustStatus.TRUSTED
             if s in self._untrusted:
                 return WorkspaceTrustStatus.UNTRUSTED
+            if worktrees_root is not None and current == worktrees_root:
+                return WorkspaceTrustStatus.TRUSTED
             if current.parent == current:
                 return WorkspaceTrustStatus.UNTRUSTED
             current = current.parent
