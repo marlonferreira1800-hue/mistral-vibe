@@ -930,6 +930,16 @@ class VibeConfigSchema(ConfigSchema):
         ),
     )
     bypass_tool_permissions: Annotated[bool, WithReplaceMerge()] = False
+    no_confirmations: Annotated[bool, WithReplaceMerge()] = Field(
+        default=False,
+        description=(
+            "Never ask for tool-call approval: every tool call (builtin, connector,"
+            " MCP) is allowed without a prompt, and any 'ask' the permission resolver"
+            " would still raise is turned into 'allow'. Unlike"
+            " bypass_tool_permissions, this is not clamped by enable_auto_approve."
+            " Explicit per-tool 'never' permissions still deny."
+        ),
+    )
     raise_on_compaction_failure: Annotated[bool, WithReplaceMerge()] = Field(
         default=False,
         deprecated="Ignored by Unified execution; remove this setting from your config.",

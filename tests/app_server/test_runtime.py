@@ -42,6 +42,14 @@ class TestEffectiveBypassToolPermissions:
         config = build_test_vibe_config(enable_auto_approve=False)
         assert _effective_bypass_tool_permissions(config, False) is False
 
+    def test_no_confirmations_bypasses_without_the_flag(self) -> None:
+        config = build_test_vibe_config(no_confirmations=True)
+        assert _effective_bypass_tool_permissions(config, False) is True
+
+    def test_no_confirmations_is_not_clamped_by_disabled_auto_approve(self) -> None:
+        config = build_test_vibe_config(enable_auto_approve=False, no_confirmations=True)
+        assert _effective_bypass_tool_permissions(config, False) is True
+
 
 class TestRuntimeSnapshotBypass:
     def test_snapshot_reports_the_flag(self) -> None:

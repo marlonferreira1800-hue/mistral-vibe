@@ -2489,8 +2489,12 @@ def _effective_bypass_tool_permissions(
     ``config.bypass_tool_permissions`` covers the config path (including the
     auto-approve agent's profile override). A policy setting that disables the
     auto-approve mode (``enable_auto_approve = false``) clamps both: the flag is
-    a request, not a right.
+    a request, not a right. ``config.no_confirmations`` is the user's own explicit
+    off switch for every prompt, so it bypasses unconditionally and is not
+    clamped: it grants nothing the user did not ask to grant.
     """
+    if config.no_confirmations:
+        return True
     return (requested or config.bypass_tool_permissions) and config.enable_auto_approve
 
 

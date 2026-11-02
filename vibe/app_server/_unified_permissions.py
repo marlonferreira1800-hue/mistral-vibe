@@ -474,6 +474,11 @@ class UnifiedPermissionResolver:
         command carries its redirects from a root -- whichever branch asked.
         """
         outcome = await self._decide(builtin, arguments)
+        if outcome.decision == "ask" and self._config.config.no_confirmations:
+            # The user's global off switch: no approval prompt is ever raised, so
+            # an "ask" becomes "allow". A "deny" stands -- it refuses the call, it
+            # does not ask about it.
+            outcome = replace(outcome, decision="allow")
         if outcome.decision != "ask" or builtin not in _SHELL_COMMAND_BUILTINS:
             return outcome
         writes = self._shell_writes(arguments)

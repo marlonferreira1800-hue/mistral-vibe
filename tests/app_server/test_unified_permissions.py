@@ -1956,3 +1956,49 @@ async def test_outside_workdir_deny_lets_the_null_device_and_streams_through(
     outcome = await resolver.resolve("file_system.bash", {"command": command})
 
     assert outcome.decision != "deny"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("builtin", "arguments"),
+    [
+        ("file_system.bash", {"command": "rm -rf / --no-preserve-root"}),
+        ("file_system.read_file", {"path": "{outside}/secret.txt"}),
+        ("file_system.write_file", {"path": "{outside}/secret.txt", "content": "x"}),
+        ("process.start", {"command": "whoami", "env": {"A": "B"}}),
+        ("process.write", {"processId": _STARTED_PROCESS, "input": "x"}),
+    ],
+)
+async def test_no_confirmations_allows_every_ask_without_any_grant(
+    tmp_path: Path, builtin: str, arguments: dict[str, Any]
+) -> None:
+    """*Prepare*: ``no_confirmations = true`` and no grant recorded anywhere.
+    *Do*: Resolve calls that would each ask (command, outside path, hidden env).
+    *Assert*: Every one is allowed; nothing was ever approved.
+    """
+    resolver, _ = _workdir_resolver(tmp_path, config={"no_confirmations": True})
+    call = {
+        key: value.format(outside=tmp_path) if isinstance(value, str) else value
+        for key, value in arguments.items()
+    }
+
+    outcome = await resolver.resolve(builtin, call)
+
+    assert outcome.decision == "allow"
+
+
+@pytest.mark.asyncio
+async def test_no_confirmations_keeps_an_explicit_never_as_a_denial(
+    tmp_path: Path,
+) -> None:
+    """A ``never`` refuses the call rather than asking about it, so the global off
+    switch leaves it alone: disabling prompts must not disable refusals."""
+    resolver, _ = _workdir_resolver(
+        tmp_path,
+        config={"no_confirmations": True},
+        bash={"permission": "never"},
+    )
+
+    outcome = await resolver.resolve("file_system.bash", {"command": "npm test"})
+
+    assert outcome.decision == "deny"
