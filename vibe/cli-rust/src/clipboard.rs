@@ -4,6 +4,13 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, OnceLock};
 
+pub mod dib_png;
+#[cfg(target_os = "windows")]
+mod win;
+
+#[cfg(target_os = "windows")]
+pub use win::{read_clipboard_files, read_clipboard_image, read_clipboard_text};
+
 /// Hint shown when the native copy is unverified.
 pub const NATIVE_COPY_HINT: &str =
     "if paste fails, Shift+select (Option in iTerm2, Fn in Terminal.app)";

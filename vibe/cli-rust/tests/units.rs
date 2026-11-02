@@ -42,6 +42,8 @@ mod check_upgrade_flags;
 mod clear_history;
 #[path = "units/click_chain.rs"]
 mod click_chain;
+#[path = "units/clipboard_dib_png.rs"]
+mod clipboard_dib_png;
 #[path = "units/clipboard_isolation.rs"]
 mod clipboard_isolation;
 #[path = "units/collapsed_pastes.rs"]

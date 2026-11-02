@@ -35,6 +35,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 cpal = { version = "0.15", optional = true }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 base64 = "0.22"
+flate2 = "1"
+crc32fast = "1"
 notify = "8"
 unicode-segmentation = "1"
 unicode-width = "0.2"
@@ -92,6 +94,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_System_Registry",
     "Win32_System_Threading",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
 

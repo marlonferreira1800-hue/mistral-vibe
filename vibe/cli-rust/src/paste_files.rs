@@ -1,9 +1,12 @@
 //! Pasted file lists: image placeholders, Finder clipboard file URLs and
 //! off-reducer path existence probes.
 
+#[cfg(target_os = "macos")]
 use std::fs::File;
+#[cfg(target_os = "macos")]
 use std::io::{Read, Seek};
 use std::path::PathBuf;
+#[cfg(target_os = "macos")]
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
@@ -12,6 +15,7 @@ use crate::edit_history::Snapshot;
 use crate::paste_image::{self, Event};
 use crate::{completion_manager, input, paste_path};
 
+#[cfg(target_os = "macos")]
 const FILE_URLS_SCRIPT: &str = r#"ObjC.import("AppKit");
 const options = $.NSDictionary.dictionaryWithObjectForKey(true, $.NSPasteboardURLReadingFileURLsOnlyKey);
 const urls = $.NSPasteboard.generalPasteboard.readObjectsForClassesOptions($([$.NSURL]), options);
@@ -177,11 +181,24 @@ pub fn image_files(files: Vec<PathBuf>) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Clipboard file lists: Finder URLs on macOS, CF_HDROP file copies on Windows.
 pub fn read_clipboard_files() -> Vec<PathBuf> {
-    if !paste_image::is_supported() {
-        return Vec::new();
-    }
+    platform_files()
+}
+
+#[cfg(target_os = "macos")]
+fn platform_files() -> Vec<PathBuf> {
     read_macos_files().unwrap_or_default()
+}
+
+#[cfg(target_os = "windows")]
+fn platform_files() -> Vec<PathBuf> {
+    crate::clipboard::read_clipboard_files()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn platform_files() -> Vec<PathBuf> {
+    Vec::new()
 }
 
 pub fn parse_clipboard_files(output: &str) -> Vec<PathBuf> {
@@ -192,6 +209,7 @@ pub fn parse_clipboard_files(output: &str) -> Vec<PathBuf> {
         .collect()
 }
 
+#[cfg(target_os = "macos")]
 fn read_macos_files() -> Option<Vec<PathBuf>> {
     let mut output: File = tempfile::tempfile().ok()?;
     let mut command = Command::new("osascript");

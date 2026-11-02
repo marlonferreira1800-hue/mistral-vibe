@@ -1,12 +1,19 @@
-//! macOS clipboard-image ingestion and composer token insertion.
+//! macOS/Windows clipboard-image ingestion and composer token insertion.
 
+#[cfg(target_os = "macos")]
 use std::fs;
+#[cfg(target_os = "macos")]
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+#[cfg(target_os = "macos")]
+use std::path::Path;
+#[cfg(target_os = "macos")]
 use std::process::{Command, Stdio};
+#[cfg(target_os = "macos")]
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+#[cfg(target_os = "macos")]
 use tempfile::Builder;
 
 use crate::app::{App, Status, ToastSeverity};
@@ -19,6 +26,7 @@ pub use store::{clipboard_image_path, write_clipboard_image};
 pub const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 pub const MAX_IMAGE_BYTES: usize = 10 * 1024 * 1024;
 pub const MAX_IN_FLIGHT: usize = 8;
+#[cfg(target_os = "macos")]
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const WARNING_SECS: u64 = 5;
 
@@ -51,7 +59,7 @@ pub enum Event {
 }
 
 pub fn is_supported() -> bool {
-    cfg!(target_os = "macos")
+    cfg!(any(target_os = "macos", target_os = "windows"))
 }
 
 pub fn is_paste_image_key(key: &KeyEvent, supported: bool) -> bool {
@@ -139,13 +147,22 @@ fn read_and_store(notify: bool) -> Event {
     }
 }
 
+#[cfg(target_os = "macos")]
 pub fn read_clipboard_image() -> Option<Vec<u8>> {
-    if !is_supported() {
-        return None;
-    }
     read_macos().filter(|data| data.starts_with(PNG_MAGIC))
 }
 
+#[cfg(target_os = "windows")]
+pub fn read_clipboard_image() -> Option<Vec<u8>> {
+    crate::clipboard::read_clipboard_image()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn read_clipboard_image() -> Option<Vec<u8>> {
+    None
+}
+
+#[cfg(target_os = "macos")]
 fn read_macos() -> Option<Vec<u8>> {
     if let Some(data) = read_macos_class("PNGf") {
         return Some(data);
@@ -154,6 +171,7 @@ fn read_macos() -> Option<Vec<u8>> {
     convert_to_png_via_sips(&tiff)
 }
 
+#[cfg(target_os = "macos")]
 fn read_macos_class(four_cc: &str) -> Option<Vec<u8>> {
     let mut file = Builder::new().suffix(".bin").tempfile().ok()?;
     file.flush().ok()?;
@@ -169,6 +187,7 @@ fn read_macos_class(four_cc: &str) -> Option<Vec<u8>> {
     fs::read(file.path()).ok().filter(|data| !data.is_empty())
 }
 
+#[cfg(target_os = "macos")]
 fn convert_to_png_via_sips(data: &[u8]) -> Option<Vec<u8>> {
     let mut source = Builder::new().suffix(".tiff").tempfile().ok()?;
     source.write_all(data).ok()?;
@@ -193,6 +212,7 @@ fn convert_to_png_via_sips(data: &[u8]) -> Option<Vec<u8>> {
         .filter(|bytes| bytes.starts_with(PNG_MAGIC))
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) fn run_with_timeout(command: &mut Command, stdout: Stdio) -> bool {
     let Ok(mut child) = command.stdout(stdout).stderr(Stdio::null()).spawn() else {
         return false;
@@ -229,6 +249,7 @@ pub fn insert_image_token(
     (start, start + token.len())
 }
 
+#[cfg(target_os = "macos")]
 fn applescript_string(path: &Path) -> String {
     path.to_string_lossy()
         .replace('\\', "\\\\")
