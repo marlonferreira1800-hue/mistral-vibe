@@ -121,3 +121,49 @@ async def test_acp_client_tool_handler_adapts_host_capabilities() -> None:
     assert update.kind == "execute"
     assert update.content is not None
     assert update.content[0].type == "terminal"
+
+
+@pytest.mark.asyncio
+async def test_acp_client_tool_handler_folds_posix_drive_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A host may spell paths in Git Bash form (``/c/...``); the client resolves
+    them with win32 semantics, which would double the drive (``C:\\c\\...``),
+    so the adapter folds them before forwarding (T177).
+    """
+    monkeypatch.setattr("vibe.utils.paths.is_windows", lambda: True)
+    client = FakeAcpClient()
+    handler = AcpClientToolHandler(cast(Client, client))
+    handler.bind_session("acp-session")
+
+    await handler.read_text_file(
+        ClientToolReadTextFileParams(
+            session_id="session-1", path="/c/Users/spott/probe.txt"
+        )
+    )
+    await handler.write_text_file(
+        ClientToolWriteTextFileParams(
+            session_id="session-1", path="/f/Projects/probe.txt", content="x"
+        )
+    )
+    await handler.write_text_file(
+        ClientToolWriteTextFileParams(
+            session_id="session-1", path="C:\\Users\\spott\\probe.txt", content="x"
+        )
+    )
+    await handler.create_terminal(
+        ClientToolTerminalCreateParams(
+            session_id="session-1",
+            command="cmd",
+            cwd="/c/Users/spott",
+            output_byte_limit=100,
+        )
+    )
+
+    reads = [params for name, params in client.calls if name == "read"]
+    writes = [params for name, params in client.calls if name == "write"]
+    creates = [params for name, params in client.calls if name == "create"]
+    assert reads[0]["path"] == "C:/Users/spott/probe.txt"
+    assert writes[0]["path"] == "F:/Projects/probe.txt"
+    assert writes[1]["path"] == "C:\\Users\\spott\\probe.txt"
+    assert creates[0]["cwd"] == "C:/Users/spott"

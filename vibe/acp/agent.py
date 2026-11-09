@@ -190,6 +190,7 @@ from vibe.observability.logging import logger
 from vibe.observability.sentry import capture_sentry_exception
 from vibe.questions import UserAnswer, UserQuestionRequest, UserQuestionResult
 from vibe.user_content import UserDisplayContent, UserResource
+from vibe.utils.paths import normalize_windows_path
 
 NON_INTERACTIVE_DISABLED_TOOLS: tuple[str, ...] = ("ask_user_question",)
 
@@ -540,6 +541,7 @@ class VibeAcpAgent(AcpAgent):
         **kwargs: Any,
     ) -> NewSessionResponse:
         del kwargs
+        cwd = normalize_windows_path(cwd)
         session = await self._create_session(
             Path(cwd),
             NewSessionIntent(),
@@ -566,6 +568,7 @@ class VibeAcpAgent(AcpAgent):
         **kwargs: Any,
     ) -> LoadSessionResponse | None:
         del kwargs
+        cwd = normalize_windows_path(cwd)
         session = await self._create_session(
             Path(cwd),
             ResumeSessionIntent(session_id),
@@ -606,7 +609,10 @@ class VibeAcpAgent(AcpAgent):
                     client=self._client_descriptor(),
                     session_options=SessionOptions(
                         cwd=str(cwd),
-                        workspace_roots=workspace_roots or [],
+                        workspace_roots=[
+                            normalize_windows_path(root)
+                            for root in workspace_roots or []
+                        ],
                         disabled_tools=disabled_tools,
                         mcp_servers=_project_acp_mcp_servers(mcp_servers or []),
                     ),
@@ -1026,6 +1032,8 @@ class VibeAcpAgent(AcpAgent):
         self, cwd: str | None = None, cursor: str | None = None, **kwargs: Any
     ) -> ListSessionsResponse:
         del cursor, kwargs
+        if cwd is not None:
+            cwd = normalize_windows_path(cwd)
         saved = await (await self._host_resources()).list_sessions(cwd=cwd)
         return ListSessionsResponse(
             sessions=[
@@ -1103,6 +1111,7 @@ class VibeAcpAgent(AcpAgent):
         | None = None,
         **kwargs: Any,
     ) -> ForkSessionResponse:
+        cwd = normalize_windows_path(cwd)
         source = self._get_session(session_id)
         try:
             params = ForkSessionParams.model_validate(kwargs)
@@ -1137,6 +1146,7 @@ class VibeAcpAgent(AcpAgent):
         **kwargs: Any,
     ) -> ResumeSessionResponse:
         del kwargs
+        cwd = normalize_windows_path(cwd)
         if session_id not in self.sessions:
             session = await self._create_session(
                 Path(cwd),
@@ -1505,6 +1515,9 @@ class VibeAcpAgent(AcpAgent):
 
     async def _trust_extension(self, method: str, params: dict[str, Any]) -> dict:
         requested_session = params.get("sessionId") or params.get("session_id")
+        cwd_param = params.get("cwd")
+        if isinstance(cwd_param, str):
+            cwd_param = normalize_windows_path(cwd_param)
         session = (
             self._get_session(requested_session)
             if isinstance(requested_session, str)
@@ -1513,11 +1526,11 @@ class VibeAcpAgent(AcpAgent):
         if method == "trust/status":
             if session is not None:
                 response = await session.app_server.resources.workspace.trust_status(
-                    params.get("cwd")
+                    cwd_param
                 )
             else:
                 host = await self._host_resources()
-                response = await host.trust_status(params.get("cwd"))
+                response = await host.trust_status(cwd_param)
         else:
             # A trust decision is a persistent write to the trust store, so an
             # untrusted ACP peer's claim must be anchored to a session Vibe
@@ -1528,7 +1541,7 @@ class VibeAcpAgent(AcpAgent):
                 raise InvalidRequestError("Trust decisions require a valid sessionId")
             try:
                 response = await session.app_server.resources.workspace.decide_trust(
-                    cast(Any, params.get("decision")), cwd=params.get("cwd")
+                    cast(Any, params.get("decision")), cwd=cwd_param
                 )
             except ValidationError as exc:
                 raise InvalidRequestError(str(exc)) from exc

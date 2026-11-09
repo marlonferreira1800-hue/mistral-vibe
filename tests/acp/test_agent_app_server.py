@@ -143,3 +143,47 @@ def test_acp_runtime_adapter_has_no_direct_core_dependency() -> None:
     assert "AgentLoop" not in contents
     assert ".agent_loop" not in contents
     assert "vibe.acp.tools" not in contents
+
+
+@pytest.mark.asyncio
+async def test_new_session_folds_posix_drive_paths_in_cwd_and_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """*Prepare*: An ACP agent whose starter records the launch options.
+    *Do*: Open a session with a Git Bash cwd and an additional directory.
+    *Assert*: Both arrive drive-qualified (``C:/...``, ``F:/...``), not as
+    ``/c/...`` that win32 resolution would anchor to the process drive and
+    double (``C:\\c\\...``) (T177).
+    """
+    monkeypatch.setattr("vibe.utils.paths.is_windows", lambda: True)
+    seen: list[LocalHarnessOptions] = []
+
+    async def start_session(options: LocalHarnessOptions) -> AppServerSession:
+        seen.append(options)
+        raise AppServerResponseError(
+            ProtocolError(code=ProtocolErrorCode.INVALID_PARAMS, message="stop")
+        )
+
+    agent = VibeAcpAgent(session_starter=start_session)
+    client = FakeClient()
+    agent.on_connect(client)
+    client.on_connect(agent)
+
+    try:
+        with pytest.raises(ConfigurationError):
+            await agent.new_session(
+                cwd="/c/Users/spott/worktree",
+                additional_directories=["/f/Projects/other"],
+                mcp_servers=[],
+            )
+    finally:
+        await agent.close()
+
+    assert len(seen) == 1
+    cwd = seen[0].session_options.cwd
+    assert cwd is not None
+    assert cwd.replace("\\", "/") == "C:/Users/spott/worktree"
+    roots = [
+        root.replace("\\", "/") for root in seen[0].session_options.workspace_roots
+    ]
+    assert roots == ["F:/Projects/other"]

@@ -30,6 +30,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import select
 import shutil
@@ -125,6 +126,28 @@ class ShellNotFoundError(LookupError):
 # Paths
 
 
+# fullmatch + DOTALL: a "$" anchor would match before a trailing newline and drop it.
+_MSYS_DRIVE = re.compile(r"/([A-Za-z])([/\\].*)?", re.DOTALL)
+
+
+def normalize_windows_path(raw: str) -> str:
+    """Fold a Git Bash / MSYS drive path (``/c/Users``) into ``C:/Users``.
+
+    This module is exec'd standalone in sandboxes (see ``_sandbox._BOOTSTRAP``),
+    so it cannot import the package's path helpers; keep it in sync with
+    ``vibe.utils.paths.normalize_windows_path``. A host that hands the agent a
+    POSIX-spelled drive path would otherwise see win32 resolution anchor it to
+    the process's current drive and double it (``/c/Users`` from drive F:
+    resolves to ``F:\\c\\Users``).
+    """
+    raw = raw.strip()
+    if sys.platform != "win32" or not (match := _MSYS_DRIVE.fullmatch(raw)):
+        return raw
+
+    suffix = (match[2] or "/").replace("\\", "/")
+    return f"{match[1].upper()}:{suffix}"
+
+
 def resolve_path(
     raw_path: str, *, cwd: str, roots: Sequence[str], roots_are_a_boundary: bool
 ) -> Path:
@@ -135,13 +158,20 @@ def resolve_path(
     """
     if not raw_path.strip():
         raise ValueError("Path cannot be empty")
+    # The host may spell the target, the cwd and the roots as POSIX drive
+    # paths (``/c/...``); fold them to drive-qualified form before win32
+    # resolution anchors them to the wrong drive.
+    raw_path = normalize_windows_path(raw_path)
+    cwd = normalize_windows_path(cwd)
     path = Path(raw_path).expanduser()
     if not path.is_absolute():
         path = Path(cwd) / path
     resolved = path.resolve()
     if not roots_are_a_boundary:
         return resolved
-    resolved_roots = tuple(Path(root).expanduser().resolve() for root in roots)
+    resolved_roots = tuple(
+        Path(normalize_windows_path(root)).expanduser().resolve() for root in roots
+    )
     if not any(resolved.is_relative_to(root) for root in resolved_roots):
         raise ValueError(f"Path is outside the workspace: {resolved}")
     return resolved
@@ -699,7 +729,7 @@ def run_file_tool(request: Mapping[str, Any]) -> dict[str, Any]:
             roots_are_a_boundary=policy["roots_are_a_boundary"],
         )
     else:
-        path = Path(authorized).expanduser()
+        path = Path(normalize_windows_path(authorized)).expanduser()
     if authorized is not None and policy.get("authorized_as_written"):
         # Approved as written, by a resolver that cannot see this file
         # system's links, such as the Host's for a sandbox. Follow them here,

@@ -16,6 +16,7 @@ from vibe.app_server.protocol import (
     ClientToolWriteTextFileParams,
     EmptyResponse,
 )
+from vibe.utils.paths import normalize_windows_path
 
 
 class AcpClientToolHandler(ClientToolHandler):
@@ -38,7 +39,7 @@ class AcpClientToolHandler(ClientToolHandler):
     ) -> ClientToolReadTextFileResponse:
         response = await self._client.read_text_file(
             session_id=self._require_session_id(),
-            path=params.path,
+            path=normalize_windows_path(params.path),
             line=params.line,
             limit=params.limit,
         )
@@ -49,7 +50,7 @@ class AcpClientToolHandler(ClientToolHandler):
     ) -> EmptyResponse:
         await self._client.write_text_file(
             session_id=self._require_session_id(),
-            path=params.path,
+            path=normalize_windows_path(params.path),
             content=params.content,
         )
         return EmptyResponse()
@@ -69,7 +70,7 @@ class AcpClientToolHandler(ClientToolHandler):
                 if params.env is not None
                 else None
             ),
-            cwd=params.cwd,
+            cwd=normalize_windows_path(params.cwd),
             output_byte_limit=params.output_byte_limit,
         )
         if params.tool_call_id is not None:
